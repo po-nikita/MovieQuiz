@@ -1,6 +1,6 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController {
+final class MovieQuizViewController: UIViewController, MovieQuizViewControllerProtocol {
     
     @IBOutlet private var noButton: UIButton!
     @IBOutlet private var yesButton: UIButton!
@@ -12,7 +12,6 @@ final class MovieQuizViewController: UIViewController {
     @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
     
     private var alertPresenter: AlertPresenter!
-    private var statisticService: StatisticServiceProtocol?
     private var presenter: MovieQuizPresenter!
 
     
@@ -60,81 +59,37 @@ final class MovieQuizViewController: UIViewController {
         counterLabel.text = step.questionNumber
     }
     
-    func showAnswerResult(isCorrect: Bool){
-        if isCorrect{
-            presenter.correctAnswers += 1
-        }
-        imageView.layer.masksToBounds = true
-        imageView.layer.borderWidth = 8
-        imageView.layer.borderColor = isCorrect ? UIColor.ypGreen.cgColor : UIColor.ypRed.cgColor
-        
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                   guard let self = self else { return }
-                   self.presenter.showNextQuestionOrResults()
-            noButton.isEnabled = true
-            yesButton.isEnabled = true
-            
-            imageView.layer.borderWidth = 0
-            imageView.layer.borderColor = nil
-               }
-    }
-    
-   private func showNextQuestionOrResult(){
-        
-        if presenter.isLastQuestion() {
-            statisticService?.store(correct: presenter.correctAnswers, total: presenter.questionAmount)
-            
-            if let statisticService = statisticService {
-                let bestGame = statisticService.bestGame
-                let totalGames = statisticService.gamesCount
-                let accuracy = String(format: "%.2f", statisticService.totalAccuracy)
-                
-                let text = """
-                Ваш результат: \(presenter.correctAnswers)/\(presenter.questionAmount)
-                Количество сыгранных квизов: \(totalGames)
-                Рекорд: \(bestGame.correct)/\(bestGame.total) (\(bestGame.date.dateTimeString))
-                Средняя точность: \(accuracy)%
-                """
-                
-                let viewModel = QuizResultsViewModel( // 2
-                    title: "Этот раунд окончен!",
-                    text: text,
-                    buttonText: "Сыграть ещё раз")
-                
-                show(quiz: viewModel) // 3
-            }
-            } else {
-                presenter.switchToNextQuestion()
-                presenter.restartGame()
-            }
+    func highlightImageBorder(isCorrectAnswer: Bool) {
+            imageView.layer.masksToBounds = true
+            imageView.layer.borderWidth = 8
+            imageView.layer.borderColor = isCorrectAnswer ? UIColor.ypGreen.cgColor : UIColor.ypRed.cgColor
         }
     
     func show(quiz result: QuizResultsViewModel) {
+        let message = presenter.makeResultMessage()
         
-        if let statisticService = statisticService {
-            statisticService.store(correct: presenter.correctAnswers, total: presenter.questionAmount)
-            
-            let alertModel = AlertModel(
-                title: result.title,
-                message: result.text,
-                buttonText: result.buttonText,
-                completion: { [weak self] in
-                    guard let self else {return}
-                    self.presenter.restartGame()
-                    self.presenter.resetQuestionIndex()
-                })
-            alertPresenter?.show(alert: alertModel)
+        let alert = UIAlertController(
+                    title: result.title,
+                    message: message,
+                    preferredStyle: .alert)
+                    
+        let action = UIAlertAction(title: result.buttonText, style: .default) { [weak self] _ in
+                        guard let self = self else { return }
+                        
+                        self.presenter.restartGame()
+                }
+        alert.addAction(action)
+        self.present(alert,animated: true, completion: nil)
         }
+    func resetUIState(){
+        yesButton.isEnabled = true
+        noButton.isEnabled = true
+        imageView.layer.borderWidth = 0
     }
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        presenter = MovieQuizPresenter(viewController: self)
         alertPresenter = AlertPresenter(viewController: self)
-        statisticService = StatisticService()
-        
-        showLoadingIndicator()
+        presenter = MovieQuizPresenter(viewController: self)
     }
     
 }
