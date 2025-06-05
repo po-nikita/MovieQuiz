@@ -20,27 +20,21 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
     
     @IBAction private func noButtonClicked(_ sender: Any) {
-        guard let currentQuestion = currentQuestion else{
-            return
-        }
-        let givenAnswer = false
+        presenter.currentQuestion = currentQuestion
+        presenter.noButtonClicked()
         
         noButton.isEnabled = false
         yesButton.isEnabled = false
         
-        showAnswerResult(isCorrect: givenAnswer == currentQuestion.correctAnswer)
     }
     
     @IBAction private func yesButtonClicked(_ sender: Any) {
-        guard let currentQuestion = currentQuestion else {
-            return
-        }
-        let givenAnswer = true
+        presenter.currentQuestion = currentQuestion
+        presenter.yesButtonClicked()
         
         noButton.isEnabled = false
         yesButton.isEnabled = false
         
-        showAnswerResult(isCorrect: givenAnswer == currentQuestion.correctAnswer)
     }
     
     func didLoadDataFromServer() {
@@ -82,7 +76,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         counterLabel.text = step.questionNumber
     }
     
-    private func showAnswerResult(isCorrect: Bool){
+    func showAnswerResult(isCorrect: Bool){
         if isCorrect{
             correctAnswer += 1
         }
@@ -151,6 +145,9 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        presenter.viewController = self
+
         alertPresenter = AlertPresenter(viewController: self)
         questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         statisticService = StatisticService()
