@@ -9,6 +9,8 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     @IBOutlet private var textLabel: UILabel!
     @IBOutlet private var counterLabel: UILabel!
     
+    @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
+    
     private var questionAmount: Int = 10
     private var questionFactory: QuestionFactoryProtocol?
     private var currentQuestion: QuizQuestion?
@@ -42,13 +44,43 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         showAnswerResult(isCorrect: givenAnswer == currentQuestion.correctAnswer)
     }
     
+    func didLoadDataFromServer() {
+        activityIndicator.isHidden = true
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didFailToLoadData(with error: any Error) {
+        showNetworkError(message: error.localizedDescription)
+    }
+    
+    private func showLoadingIndicator(){
+        activityIndicator.isHidden = false
+        activityIndicator.startAnimating()
+    }
+    private func hideLoadingIndicator(){
+        activityIndicator.stopAnimating()
+        activityIndicator.isHidden = true
+    }
+    
+    private func showNetworkError(message: String){
+        hideLoadingIndicator()
+        
+        let model = AlertModel(title: "Ошибка", message: message, buttonText: "Попробовать еще раз") { [weak self] in
+            guard let self = self else {return}
+        
+            self.currentQuestionIndex = 0
+            self.correctAnswer = 0
+            
+            self.questionFactory?.requestNextQuestion()
+        }
+        alertPresenter.show(alert: model)
+    }
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel{
-        let questionStep = QuizStepViewModel(
-            image: UIImage(named: model.image) ?? UIImage(),
+        return QuizStepViewModel(
+            image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionAmount)")
-        return questionStep
     }
     
     private func show(quiz step: QuizStepViewModel){
@@ -125,13 +157,13 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        imageView.layer.cornerRadius = 20
         alertPresenter = AlertPresenter(viewController: self)
-        questionFactory = QuestionFactory(delegate: self)
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         statisticService = StatisticService()
         
-        if let firstQuestion = questionFactory?.requestNextQuestion(){
-            questionFactory?.requestNextQuestion()
-        }
+        showLoadingIndicator()
+        questionFactory?.loadData()
     }
     // MARK: - QuestionFactoryDelegate
     func didReceiveNextQuestion(question: QuizQuestion?) {
